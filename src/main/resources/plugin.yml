@@ -1,0 +1,4 @@
+name: AcctAPI
+version: '1.0.0'
+main: AcctAPI
+api-version: '1.21'
