@@ -155,4 +155,64 @@ public final class AcctAPI extends JavaPlugin {
             }
         });
     }
+
+    /**
+     * Get player UUID from their linked Discord ID (Async)
+     * @param discordId The Discord ID
+     * @return CompletableFuture containing Optional with UUID if found
+     */
+    public static CompletableFuture<Optional<UUID>> getUuidByDiscordId(String discordId) {
+        return CompletableFuture.supplyAsync(() -> {
+            Object dbManager = getDatabaseManager();
+            if (dbManager == null) return Optional.empty();
+            try {
+                Method getPlayerUUIDMethod = dbManager.getClass().getMethod("getPlayerUUID", String.class);
+                UUID uuid = (UUID) getPlayerUUIDMethod.invoke(dbManager, discordId);
+                return Optional.ofNullable(uuid);
+            } catch (Exception e) {
+                logReflectionError(e);
+                return Optional.empty();
+            }
+        });
+    }
+
+    /**
+     * Get player's linked Discord ID from their username (Async)
+     * @param playerName The player's username
+     * @return CompletableFuture containing Optional with Discord ID string if found
+     */
+    public static CompletableFuture<Optional<String>> getDiscordId(String playerName) {
+        return CompletableFuture.supplyAsync(() -> {
+            Object dbManager = getDatabaseManager();
+            if (dbManager == null) return Optional.empty();
+            try {
+                Method getDiscordIdMethod = dbManager.getClass().getMethod("getDiscordId", String.class);
+                String discordId = (String) getDiscordIdMethod.invoke(dbManager, playerName);
+                return Optional.ofNullable(discordId);
+            } catch (Exception e) {
+                logReflectionError(e);
+                return Optional.empty();
+            }
+        });
+    }
+
+    /**
+     * Get player's linked Discord ID from their UUID (Async)
+     * @param playerUUID The player's UUID
+     * @return CompletableFuture containing Optional with Discord ID string if found
+     */
+    public static CompletableFuture<Optional<String>> getDiscordId(UUID playerUUID) {
+        return CompletableFuture.supplyAsync(() -> {
+            Object dbManager = getDatabaseManager();
+            if (dbManager == null) return Optional.empty();
+            try {
+                Method getDiscordIdMethod = dbManager.getClass().getMethod("getDiscordId", UUID.class);
+                String discordId = (String) getDiscordIdMethod.invoke(dbManager, playerUUID);
+                return Optional.ofNullable(discordId);
+            } catch (Exception e) {
+                logReflectionError(e);
+                return Optional.empty();
+            }
+        });
+    }
 }
