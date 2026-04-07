@@ -1,4 +1,4 @@
 name: AcctAPI
 version: '1.0.0'
-main: AcctAPI
+main: AcctAPI.AcctAP
 api-version: '1.21'
