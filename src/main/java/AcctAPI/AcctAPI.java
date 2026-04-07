@@ -84,7 +84,6 @@ public final class AcctAPI extends JavaPlugin {
             if (dbManager == null) return Optional.empty();
             try {
                 Method getAccountMethod = dbManager.getClass().getMethod("getPlayerAccount", String.class);
-                // The cast is necessary due to reflection, but we are confident in the return type.
                 return (Optional<PlayerAccount>) getAccountMethod.invoke(dbManager, playerName);
             } catch (Exception e) {
                 logReflectionError(e);
@@ -161,18 +160,64 @@ public final class AcctAPI extends JavaPlugin {
      * @param discordId The Discord ID
      * @return CompletableFuture containing Optional with UUID if found
      */
+    @SuppressWarnings("unchecked")
     public static CompletableFuture<Optional<UUID>> getUuidByDiscordId(String discordId) {
         return CompletableFuture.supplyAsync(() -> {
             Object dbManager = getDatabaseManager();
-            if (dbManager == null) return Optional.empty();
-            
+            if (dbManager == null) {
+                if(instance != null) instance.getLogger().warning("AcctMNAPI could not get DatabaseManager. Is AcctMN loaded?");
+                return Optional.empty();
+            }
+
             try {
-                // acct.database.DatabaseManager Interface class approach
-                Class<?> dbManagerClass = Class.forName("acct.database.DatabaseManager");
-                Method getPlayerUUIDMethod = dbManagerClass.getMethod("getPlayerUUID", String.class);
-                
-                UUID result = (UUID) getPlayerUUIDMethod.invoke(dbManager, discordId);
-                return Optional.ofNullable(result);
+                Method targetMethod = null;
+                boolean useLong = false;
+
+                // Try to find the method, preferring String, then long/Long
+                try {
+                    targetMethod = dbManager.getClass().getMethod("getPlayerUUID", String.class);
+                } catch (NoSuchMethodException e) {
+                    try {
+                        targetMethod = dbManager.getClass().getMethod("getPlayerUUID", long.class);
+                        useLong = true;
+                    } catch (NoSuchMethodException e2) {
+                        try {
+                            targetMethod = dbManager.getClass().getMethod("getPlayerUUID", Long.class);
+                            useLong = true;
+                        } catch (NoSuchMethodException e3) {
+                            // Fallback: search for any method related to discord and uuid
+                            for (Method m : dbManager.getClass().getMethods()) {
+                                String mName = m.getName().toLowerCase();
+                                if (mName.contains("uuid") && mName.contains("discord") && m.getParameterCount() == 1) {
+                                    Class<?> pType = m.getParameterTypes()[0];
+                                    if (pType == String.class) {
+                                        targetMethod = m;
+                                        break;
+                                    } else if (pType == long.class || pType == Long.class) {
+                                        targetMethod = m;
+                                        useLong = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (targetMethod == null) {
+                    throw new NoSuchMethodException("AcctMNAPI could not find a suitable method to get UUID by Discord ID in " + dbManager.getClass().getName());
+                }
+
+                // Prepare argument and invoke
+                Object arg = useLong ? Long.parseLong(discordId) : discordId;
+                Object result = targetMethod.invoke(dbManager, arg);
+
+                // Process result (could be UUID or Optional<UUID>)
+                if (result instanceof Optional) {
+                    return (Optional<UUID>) result;
+                }
+                return Optional.ofNullable((UUID) result);
+
             } catch (Exception e) {
                 logReflectionError(e);
                 return Optional.empty();
@@ -190,9 +235,7 @@ public final class AcctAPI extends JavaPlugin {
             Object dbManager = getDatabaseManager();
             if (dbManager == null) return Optional.empty();
             try {
-                Class<?> dbManagerClass = Class.forName("acct.database.DatabaseManager");
-                Method getDiscordIdMethod = dbManagerClass.getMethod("getDiscordId", String.class);
-                
+                Method getDiscordIdMethod = dbManager.getClass().getMethod("getDiscordId", String.class);
                 String result = (String) getDiscordIdMethod.invoke(dbManager, playerName);
                 return Optional.ofNullable(result);
             } catch (Exception e) {
@@ -212,9 +255,7 @@ public final class AcctAPI extends JavaPlugin {
             Object dbManager = getDatabaseManager();
             if (dbManager == null) return Optional.empty();
             try {
-                Class<?> dbManagerClass = Class.forName("acct.database.DatabaseManager");
-                Method getDiscordIdMethod = dbManagerClass.getMethod("getDiscordId", UUID.class);
-                
+                Method getDiscordIdMethod = dbManager.getClass().getMethod("getDiscordId", UUID.class);
                 String result = (String) getDiscordIdMethod.invoke(dbManager, playerUUID);
                 return Optional.ofNullable(result);
             } catch (Exception e) {
