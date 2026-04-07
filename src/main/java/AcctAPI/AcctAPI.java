@@ -165,10 +165,14 @@ public final class AcctAPI extends JavaPlugin {
         return CompletableFuture.supplyAsync(() -> {
             Object dbManager = getDatabaseManager();
             if (dbManager == null) return Optional.empty();
+            
             try {
-                Method getPlayerUUIDMethod = dbManager.getClass().getMethod("getPlayerUUID", String.class);
-                UUID uuid = (UUID) getPlayerUUIDMethod.invoke(dbManager, discordId);
-                return Optional.ofNullable(uuid);
+                // acct.database.DatabaseManager Interface class approach
+                Class<?> dbManagerClass = Class.forName("acct.database.DatabaseManager");
+                Method getPlayerUUIDMethod = dbManagerClass.getMethod("getPlayerUUID", String.class);
+                
+                UUID result = (UUID) getPlayerUUIDMethod.invoke(dbManager, discordId);
+                return Optional.ofNullable(result);
             } catch (Exception e) {
                 logReflectionError(e);
                 return Optional.empty();
@@ -186,9 +190,11 @@ public final class AcctAPI extends JavaPlugin {
             Object dbManager = getDatabaseManager();
             if (dbManager == null) return Optional.empty();
             try {
-                Method getDiscordIdMethod = dbManager.getClass().getMethod("getDiscordId", String.class);
-                String discordId = (String) getDiscordIdMethod.invoke(dbManager, playerName);
-                return Optional.ofNullable(discordId);
+                Class<?> dbManagerClass = Class.forName("acct.database.DatabaseManager");
+                Method getDiscordIdMethod = dbManagerClass.getMethod("getDiscordId", String.class);
+                
+                String result = (String) getDiscordIdMethod.invoke(dbManager, playerName);
+                return Optional.ofNullable(result);
             } catch (Exception e) {
                 logReflectionError(e);
                 return Optional.empty();
@@ -206,9 +212,11 @@ public final class AcctAPI extends JavaPlugin {
             Object dbManager = getDatabaseManager();
             if (dbManager == null) return Optional.empty();
             try {
-                Method getDiscordIdMethod = dbManager.getClass().getMethod("getDiscordId", UUID.class);
-                String discordId = (String) getDiscordIdMethod.invoke(dbManager, playerUUID);
-                return Optional.ofNullable(discordId);
+                Class<?> dbManagerClass = Class.forName("acct.database.DatabaseManager");
+                Method getDiscordIdMethod = dbManagerClass.getMethod("getDiscordId", UUID.class);
+                
+                String result = (String) getDiscordIdMethod.invoke(dbManager, playerUUID);
+                return Optional.ofNullable(result);
             } catch (Exception e) {
                 logReflectionError(e);
                 return Optional.empty();
