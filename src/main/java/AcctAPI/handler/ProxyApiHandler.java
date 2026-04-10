@@ -32,18 +32,21 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
         plugin.getServer().getMessenger().registerIncomingPluginChannel(plugin, CHANNEL, this);
     }
 
-    // Suppressing "unchecked" for the CompletableFuture cast, which is a valid pattern here.
-    // Suppressing "ConstantConditions" or similar false positives for the @NotNull on byte[].
-    @SuppressWarnings({"unchecked", "ConstantConditions"})
+    @SuppressWarnings("unchecked")
     @Override
-    public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, @NotNull byte[] message) {
+    public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte[] message) {
+        // This check is technically redundant as Paper/Spigot API contract guarantees non-null,
+        // but it's added to satisfy a conflicting IDE linter warning.
+        if (message == null) {
+            return;
+        }
+
         if (!channel.equals(CHANNEL)) return;
 
         ByteArrayDataInput in = ByteStreams.newDataInput(message);
         String subChannel = in.readUTF();
         String requestId = in.readUTF();
 
-        // Use .get() instead of .remove() so the whenComplete block can handle removal
         CompletableFuture<?> future = pendingRequests.get(requestId);
         if (future == null) return;
 
@@ -64,11 +67,8 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
             case "getDiscordIdByUUID":
                 handleGetDiscordId(in, (CompletableFuture<Optional<String>>) future);
                 break;
-            // forceChangePassword and forceDeleteAccount are fire-and-forget, no response needed.
         }
     }
-
-    // --- Request Sending Methods ---
 
     private <T> CompletableFuture<T> createAndSendRequest(String subChannel, String... args) {
         Player sender = Iterables.getFirst(Bukkit.getOnlinePlayers(), null);
@@ -89,11 +89,9 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
         pendingRequests.put(requestId, future);
         sender.sendPluginMessage(plugin, CHANNEL, out.toByteArray());
 
-        // Return a new future with timeout and cleanup logic
         return future
             .orTimeout(5, TimeUnit.SECONDS)
             .whenComplete((result, throwable) -> {
-                // This block always executes, ensuring we remove the pending request
                 if (pendingRequests.remove(requestId) != null && throwable instanceof TimeoutException) {
                     plugin.getLogger().warning("AcctAPI request '" + subChannel + "' (ID: " + requestId + ") timed out after 5 seconds.");
                 }
@@ -111,13 +109,12 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
 
         ByteArrayDataOutput out = ByteStreams.newDataOutput();
         out.writeUTF(subChannel);
-        // No requestId needed for fire-and-forget
         for (String arg : args) {
             out.writeUTF(arg);
         }
         
         sender.sendPluginMessage(plugin, CHANNEL, out.toByteArray());
-        future.complete(null); // Complete immediately
+        future.complete(null);
         return future;
     }
 
@@ -160,8 +157,6 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
     public CompletableFuture<Optional<String>> getDiscordId(UUID playerUUID) {
         return createAndSendRequest("getDiscordIdByUUID", playerUUID.toString());
     }
-
-    // --- Response Handling Methods ---
 
     private void handleIsRegistered(ByteArrayDataInput in, CompletableFuture<Boolean> future) {
         future.complete(in.readBoolean());
@@ -210,7 +205,6 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
     public void shutdown() {
         plugin.getServer().getMessenger().unregisterOutgoingPluginChannel(plugin, CHANNEL);
         plugin.getServer().getMessenger().unregisterIncomingPluginChannel(plugin, CHANNEL, this);
-        // Clear any pending requests and complete them exceptionally to prevent plugins from hanging
         pendingRequests.forEach((id, future) -> future.completeExceptionally(new IllegalStateException("AcctAPI is shutting down.")));
         pendingRequests.clear();
     }
