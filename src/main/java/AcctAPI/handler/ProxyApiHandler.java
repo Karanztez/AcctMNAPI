@@ -34,7 +34,7 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
 
     @SuppressWarnings("unchecked")
     @Override
-    public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte[] message) {
+    public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, @NotNull byte[] message) {
         if (!channel.equals(CHANNEL)) return;
 
         ByteArrayDataInput in = ByteStreams.newDataInput(message);
@@ -209,9 +209,7 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
         plugin.getServer().getMessenger().unregisterOutgoingPluginChannel(plugin, CHANNEL);
         plugin.getServer().getMessenger().unregisterIncomingPluginChannel(plugin, CHANNEL, this);
         // Clear any pending requests and complete them exceptionally to prevent plugins from hanging
-        pendingRequests.forEach((id, future) -> {
-            future.completeExceptionally(new IllegalStateException("AcctAPI is shutting down."));
-        });
+        pendingRequests.forEach((id, future) -> future.completeExceptionally(new IllegalStateException("AcctAPI is shutting down.")));
         pendingRequests.clear();
     }
 }
