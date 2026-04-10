@@ -17,6 +17,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
 
@@ -39,7 +41,8 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
         String subChannel = in.readUTF();
         String requestId = in.readUTF();
 
-        CompletableFuture<?> future = pendingRequests.remove(requestId);
+        // Use .get() instead of .remove() so the whenComplete block can handle removal
+        CompletableFuture<?> future = pendingRequests.get(requestId);
         if (future == null) return;
 
         switch (subChannel) {
@@ -66,8 +69,13 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
     // --- Request Sending Methods ---
 
     private <T> CompletableFuture<T> createAndSendRequest(String subChannel, String... args) {
-        CompletableFuture<T> future = new CompletableFuture<>();
-        String requestId = UUID.randomUUID().toString();
+        Player sender = Iterables.getFirst(Bukkit.getOnlinePlayers(), null);
+        if (sender == null) {
+            return CompletableFuture.failedFuture(new IllegalStateException("Cannot send plugin message: No players online."));
+        }
+
+        final CompletableFuture<T> future = new CompletableFuture<>();
+        final String requestId = UUID.randomUUID().toString();
 
         ByteArrayDataOutput out = ByteStreams.newDataOutput();
         out.writeUTF(subChannel);
@@ -77,15 +85,17 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
         }
 
         pendingRequests.put(requestId, future);
-
-        Player sender = Iterables.getFirst(Bukkit.getOnlinePlayers(), null);
-        if (sender == null) {
-            future.completeExceptionally(new IllegalStateException("Cannot send plugin message: No players online."));
-            return future;
-        }
         sender.sendPluginMessage(plugin, CHANNEL, out.toByteArray());
 
-        return future;
+        // Return a new future with timeout and cleanup logic
+        return future
+            .orTimeout(5, TimeUnit.SECONDS)
+            .whenComplete((result, throwable) -> {
+                // This block always executes, ensuring we remove the pending request
+                if (pendingRequests.remove(requestId) != null && throwable instanceof TimeoutException) {
+                    plugin.getLogger().warning("AcctAPI request '" + subChannel + "' (ID: " + requestId + ") timed out after 5 seconds.");
+                }
+            });
     }
     
     private CompletableFuture<Void> createAndSendFireAndForgetRequest(String subChannel, String... args) {
@@ -198,6 +208,10 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
     public void shutdown() {
         plugin.getServer().getMessenger().unregisterOutgoingPluginChannel(plugin, CHANNEL);
         plugin.getServer().getMessenger().unregisterIncomingPluginChannel(plugin, CHANNEL, this);
+        // Clear any pending requests and complete them exceptionally to prevent plugins from hanging
+        pendingRequests.forEach((id, future) -> {
+            future.completeExceptionally(new IllegalStateException("AcctAPI is shutting down."));
+        });
         pendingRequests.clear();
     }
 }
