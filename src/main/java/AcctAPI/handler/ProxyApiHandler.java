@@ -20,13 +20,14 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+@SuppressWarnings("unused") // This class is intended to be used by other plugins (like AcctMN)
 public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
 
-    private final JavaPlugin plugin; // Changed from AcctAPI to JavaPlugin
+    private final JavaPlugin plugin;
     private final String CHANNEL = "acct:api";
     private final Map<String, CompletableFuture<?>> pendingRequests = new ConcurrentHashMap<>();
 
-    public ProxyApiHandler(JavaPlugin plugin) { // Changed constructor
+    public ProxyApiHandler(JavaPlugin plugin) {
         this.plugin = plugin;
         plugin.getServer().getMessenger().registerOutgoingPluginChannel(plugin, CHANNEL);
         plugin.getServer().getMessenger().registerIncomingPluginChannel(plugin, CHANNEL, this);
