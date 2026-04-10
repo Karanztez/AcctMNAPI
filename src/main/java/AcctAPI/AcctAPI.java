@@ -2,30 +2,22 @@ package AcctAPI;
 
 import AcctAPI.api.ApiHandler;
 import AcctAPI.api.PlayerAccount;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * A platform-independent API class.
+ * This class should NOT extend JavaPlugin or any other platform-specific class.
+ */
 @SuppressWarnings("unused") // Suppress "never used" warnings as this is a library
-public final class AcctAPI extends JavaPlugin {
+public final class AcctAPI {
 
     private static ApiHandler handler;
 
-    @Override
-    public void onEnable() {
-        // This plugin is a library, its onEnable should do nothing.
-        // The handler is initialized by the main plugin (e.g., AcctVelocity or AcctMN).
-    }
-
-    @Override
-    public void onDisable() {
-        if (handler != null) {
-            handler.shutdown();
-            handler = null; // Clear the handler on disable
-        }
-    }
+    // Private constructor to prevent instantiation
+    private AcctAPI() {}
 
     /**
      * This method should be called by the main plugin (AcctVelocity/AcctMN) to set the correct handler.
@@ -33,11 +25,19 @@ public final class AcctAPI extends JavaPlugin {
      */
     public static void setHandler(ApiHandler apiHandler) {
         if (handler != null && handler != apiHandler) {
-            // Log a warning if trying to set a different handler, but allow it.
-            // This can happen during reloads.
             System.out.println("[AcctAPI] Warning: AcctAPI handler is being replaced.");
         }
         handler = apiHandler;
+    }
+
+    /**
+     * This method should be called by the main plugin on shutdown.
+     */
+    public static void shutdown() {
+        if (handler != null) {
+            handler.shutdown();
+            handler = null; // Clear the handler
+        }
     }
 
     private static ApiHandler getHandler() {
@@ -54,7 +54,7 @@ public final class AcctAPI extends JavaPlugin {
     public static CompletableFuture<Boolean> isRegistered(String playerName) {
         return getHandler().isRegistered(playerName);
     }
-
+    
     public static CompletableFuture<Boolean> isAuthenticated(UUID uuid) {
         return getHandler().isAuthenticated(uuid);
     }
@@ -70,7 +70,7 @@ public final class AcctAPI extends JavaPlugin {
     public static CompletableFuture<Optional<String>> getDiscordId(UUID playerUUID) {
         return getHandler().getDiscordId(playerUUID);
     }
-
+    
     public static CompletableFuture<Void> forceChangePassword(String playerName, String newPassword) {
         return getHandler().forceChangePassword(playerName, newPassword);
     }
