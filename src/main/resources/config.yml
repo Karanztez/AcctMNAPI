@@ -1,0 +1,4 @@
+# integration-mode: "reflection" or "proxy"
+# "reflection": (ค่าเริ่มต้น) ใช้ระบบ Reflection แบบเดิม เหมาะสำหรับเซิร์ฟเวอร์เดี่ยว
+# "proxy": ใช้ระบบ Plugin Message สำหรับเครือข่าย BungeeCord/Velocity
+integration-mode: "reflection"

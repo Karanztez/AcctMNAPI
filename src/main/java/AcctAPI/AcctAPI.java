@@ -1,19 +1,14 @@
 package AcctAPI;
 
+import AcctAPI.api.ApiHandler;
 import AcctAPI.api.PlayerAccount;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.Plugin;
+import AcctAPI.handler.ProxyApiHandler;
+import AcctAPI.handler.ReflectionApiHandler;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.lang.reflect.Method;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * API for external developers to access AcctMN data.
@@ -21,247 +16,66 @@ import java.util.logging.Logger;
 @SuppressWarnings("unused")
 public final class AcctAPI extends JavaPlugin {
 
-    private static Plugin acctMNPlugin;
-    private static JavaPlugin instance;
+    private static ApiHandler handler;
+    private static AcctAPI instance;
 
     @Override
     public void onEnable() {
         instance = this;
-        acctMNPlugin = Bukkit.getPluginManager().getPlugin("AcctMN");
-        if (acctMNPlugin == null) {
-            getLogger().severe("AcctMN plugin not found! The AcctAPI will not function.");
+        saveDefaultConfig();
+        String mode = getConfig().getString("integration-mode", "reflection");
+
+        if (mode.equalsIgnoreCase("proxy")) {
+            handler = new ProxyApiHandler(this);
+            getLogger().info("AcctAPI is running in PROXY mode.");
+        } else {
+            handler = new ReflectionApiHandler(this);
+            getLogger().info("AcctAPI is running in REFLECTION mode.");
         }
     }
 
     @Override
     public void onDisable() {
-        acctMNPlugin = null;
+        if (handler != null) {
+            handler.shutdown();
+        }
+        handler = null;
         instance = null;
     }
 
-    private static void logReflectionError(Exception e) {
-        if (instance != null) {
-            instance.getLogger().log(Level.SEVERE, "A reflection error occurred in AcctAPI. Please ensure AcctMN is up to date.", e);
-        } else {
-            Logger.getLogger("AcctAPI").log(Level.SEVERE, "A reflection error occurred in AcctAPI. Please ensure AcctMN is up to date.", e);
-        }
+    public static AcctAPI getInstance() {
+        return instance;
     }
 
-    private static Object getAcctMNManager(String managerName) {
-        if (acctMNPlugin == null) return null;
-        try {
-            Method getManagerMethod = acctMNPlugin.getClass().getMethod("get" + managerName);
-            return getManagerMethod.invoke(acctMNPlugin);
-        } catch (Exception e) {
-            logReflectionError(e);
-            return null;
-        }
+    public static CompletableFuture<Boolean> isRegistered(String playerName) {
+        return handler.isRegistered(playerName);
     }
 
-    private static Object getDatabaseManager() {
-        return getAcctMNManager("DatabaseManager");
-    }
-
-    private static Object getSessionManager() {
-        return getAcctMNManager("SessionManager");
-    }
-
-    private static Object getLangManager() {
-        return getAcctMNManager("Lang");
-    }
-
-    public static boolean isRegistered(String playerName) {
-        Object dbManager = getDatabaseManager();
-        if (dbManager == null) return false;
-        try {
-            Method isRegisteredMethod = dbManager.getClass().getMethod("isRegistered", String.class);
-            return (boolean) isRegisteredMethod.invoke(dbManager, playerName);
-        } catch (Exception e) {
-            logReflectionError(e);
-            return false;
-        }
-    }
-
-    @SuppressWarnings("unchecked")
     public static CompletableFuture<Optional<PlayerAccount>> getPlayerAccount(String playerName) {
-        return CompletableFuture.supplyAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) return Optional.empty();
-            try {
-                Method getAccountMethod = dbManager.getClass().getMethod("getPlayerAccount", String.class);
-                return (Optional<PlayerAccount>) getAccountMethod.invoke(dbManager, playerName);
-            } catch (Exception e) {
-                logReflectionError(e);
-                return Optional.empty();
-            }
-        });
+        return handler.getPlayerAccount(playerName);
     }
 
-    public static boolean isAuthenticated(UUID uuid) {
-        Player player = Bukkit.getPlayer(uuid);
-        if (player == null || !player.isOnline()) {
-            return false;
-        }
-        Object sessionManager = getSessionManager();
-        if (sessionManager == null) return false;
-        try {
-            Method isPendingMethod = sessionManager.getClass().getMethod("isPending", Player.class);
-            return !(boolean) isPendingMethod.invoke(sessionManager, player);
-        } catch (Exception e) {
-            logReflectionError(e);
-            return false;
-        }
+    public static CompletableFuture<Boolean> isAuthenticated(UUID uuid) {
+        return handler.isAuthenticated(uuid);
     }
 
     public static CompletableFuture<Void> forceChangePassword(String playerName, String newPassword) {
-        return CompletableFuture.runAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) return;
-            try {
-                Method updatePasswordMethod = dbManager.getClass().getMethod("updatePassword", String.class, String.class);
-                updatePasswordMethod.invoke(dbManager, playerName, newPassword);
-            } catch (Exception e) {
-                logReflectionError(e);
-            }
-        });
+        return handler.forceChangePassword(playerName, newPassword);
     }
 
     public static CompletableFuture<Void> forceDeleteAccount(String playerName) {
-        return CompletableFuture.runAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) return;
-
-            try {
-                Method isRegisteredMethod = dbManager.getClass().getMethod("isRegistered", String.class);
-                boolean registered = (boolean) isRegisteredMethod.invoke(dbManager, playerName);
-
-                if (registered) {
-                    getPlayerAccount(playerName).thenAccept(opt -> opt.ifPresent(acc -> {
-                        Player player = Bukkit.getPlayer(acc.uuid());
-                        if (player != null) {
-                            Object langManager = getLangManager();
-                            if (langManager == null) return;
-                            try {
-                                Method getLangMethod = langManager.getClass().getMethod("get", String.class);
-                                String kickMessage = (String) getLangMethod.invoke(langManager, "unregister.kick_message");
-                                final Component kickComponent = LegacyComponentSerializer.legacyAmpersand().deserialize(kickMessage);
-                                Bukkit.getScheduler().runTask(acctMNPlugin, () -> player.kick(kickComponent));
-                            } catch (Exception e) {
-                                logReflectionError(e);
-                            }
-                        }
-                    }));
-                    Method deleteAccountMethod = dbManager.getClass().getMethod("deleteAccount", String.class);
-                    deleteAccountMethod.invoke(dbManager, playerName);
-                }
-            } catch (Exception e) {
-                logReflectionError(e);
-            }
-        });
+        return handler.forceDeleteAccount(playerName);
     }
 
-    /**
-     * Get player UUID from their linked Discord ID (Async)
-     * @param discordId The Discord ID
-     * @return CompletableFuture containing Optional with UUID if found
-     */
-    @SuppressWarnings("unchecked")
     public static CompletableFuture<Optional<UUID>> getUuidByDiscordId(String discordId) {
-        return CompletableFuture.supplyAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) {
-                if(instance != null) instance.getLogger().warning("AcctMNAPI could not get DatabaseManager. Is AcctMN loaded?");
-                return Optional.empty();
-            }
-
-            try {
-                // According to the new information, the method is exactly: UUID getPlayerUUID(String discordId)
-                // We use Class.forName to ensure we check the interface, bypassing proxy visibility issues.
-                Class<?> dbManagerInterface;
-                try {
-                    dbManagerInterface = Class.forName("acct.database.DatabaseManager");
-                } catch (ClassNotFoundException e) {
-                    // Fallback to getting class directly if interface isn't found
-                    dbManagerInterface = dbManager.getClass();
-                }
-
-                Method getPlayerUuidMethod = dbManagerInterface.getMethod("getPlayerUUID", String.class);
-                Object result = getPlayerUuidMethod.invoke(dbManager, discordId);
-
-                if (result instanceof UUID) {
-                    return Optional.of((UUID) result);
-                } else if (result instanceof Optional) {
-                    return (Optional<UUID>) result;
-                }
-                
-                return Optional.empty();
-
-            } catch (Exception e) {
-                logReflectionError(e);
-                return Optional.empty();
-            }
-        });
+        return handler.getUuidByDiscordId(discordId);
     }
 
-    /**
-     * Get player's linked Discord ID from their username (Async)
-     * @param playerName The player's username
-     * @return CompletableFuture containing Optional with Discord ID string if found
-     */
     public static CompletableFuture<Optional<String>> getDiscordId(String playerName) {
-        return CompletableFuture.supplyAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) return Optional.empty();
-            try {
-                Class<?> dbManagerInterface;
-                try {
-                    dbManagerInterface = Class.forName("acct.database.DatabaseManager");
-                } catch (ClassNotFoundException e) {
-                    dbManagerInterface = dbManager.getClass();
-                }
-
-                Method getDiscordIdMethod = dbManagerInterface.getMethod("getDiscordId", String.class);
-                Object result = getDiscordIdMethod.invoke(dbManager, playerName);
-                
-                if (result instanceof String) {
-                    return Optional.of((String) result);
-                }
-                return Optional.empty();
-            } catch (Exception e) {
-                logReflectionError(e);
-                return Optional.empty();
-            }
-        });
+        return handler.getDiscordId(playerName);
     }
 
-    /**
-     * Get player's linked Discord ID from their UUID (Async)
-     * @param playerUUID The player's UUID
-     * @return CompletableFuture containing Optional with Discord ID string if found
-     */
     public static CompletableFuture<Optional<String>> getDiscordId(UUID playerUUID) {
-        return CompletableFuture.supplyAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) return Optional.empty();
-            try {
-                Class<?> dbManagerInterface;
-                try {
-                    dbManagerInterface = Class.forName("acct.database.DatabaseManager");
-                } catch (ClassNotFoundException e) {
-                    dbManagerInterface = dbManager.getClass();
-                }
-
-                Method getDiscordIdMethod = dbManagerInterface.getMethod("getDiscordId", UUID.class);
-                Object result = getDiscordIdMethod.invoke(dbManager, playerUUID);
-                
-                if (result instanceof String) {
-                    return Optional.of((String) result);
-                }
-                return Optional.empty();
-            } catch (Exception e) {
-                logReflectionError(e);
-                return Optional.empty();
-            }
-        });
+        return handler.getDiscordId(playerUUID);
     }
 }
