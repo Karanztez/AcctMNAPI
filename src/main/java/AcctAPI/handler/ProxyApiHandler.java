@@ -32,7 +32,9 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
         plugin.getServer().getMessenger().registerIncomingPluginChannel(plugin, CHANNEL, this);
     }
 
-    @SuppressWarnings("unchecked")
+    // Suppressing "unchecked" for the CompletableFuture cast, which is a valid pattern here.
+    // Suppressing "ConstantConditions" or similar false positives for the @NotNull on byte[].
+    @SuppressWarnings({"unchecked", "ConstantConditions"})
     @Override
     public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, @NotNull byte[] message) {
         if (!channel.equals(CHANNEL)) return;
