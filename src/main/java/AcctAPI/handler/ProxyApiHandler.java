@@ -1,6 +1,5 @@
 package AcctAPI.handler;
 
-import AcctAPI.AcctAPI;
 import AcctAPI.api.ApiHandler;
 import AcctAPI.api.PlayerAccount;
 import com.google.common.collect.Iterables;
@@ -9,6 +8,7 @@ import com.google.common.io.ByteArrayDataOutput;
 import com.google.common.io.ByteStreams;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.jetbrains.annotations.NotNull;
 
@@ -22,11 +22,11 @@ import java.util.concurrent.TimeoutException;
 
 public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
 
-    private final AcctAPI plugin;
+    private final JavaPlugin plugin; // Changed from AcctAPI to JavaPlugin
     private final String CHANNEL = "acct:api";
     private final Map<String, CompletableFuture<?>> pendingRequests = new ConcurrentHashMap<>();
 
-    public ProxyApiHandler(AcctAPI plugin) {
+    public ProxyApiHandler(JavaPlugin plugin) { // Changed constructor
         this.plugin = plugin;
         plugin.getServer().getMessenger().registerOutgoingPluginChannel(plugin, CHANNEL);
         plugin.getServer().getMessenger().registerIncomingPluginChannel(plugin, CHANNEL, this);
@@ -35,8 +35,6 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
     @SuppressWarnings("unchecked")
     @Override
     public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte[] message) {
-        // This check is technically redundant as Paper/Spigot API contract guarantees non-null,
-        // but it's added to satisfy a conflicting IDE linter warning.
         if (message == null) {
             return;
         }
@@ -90,17 +88,17 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
         sender.sendPluginMessage(plugin, CHANNEL, out.toByteArray());
 
         return future
-            .orTimeout(5, TimeUnit.SECONDS)
-            .whenComplete((result, throwable) -> {
-                if (pendingRequests.remove(requestId) != null && throwable instanceof TimeoutException) {
-                    plugin.getLogger().warning("AcctAPI request '" + subChannel + "' (ID: " + requestId + ") timed out after 5 seconds.");
-                }
-            });
+                .orTimeout(5, TimeUnit.SECONDS)
+                .whenComplete((result, throwable) -> {
+                    if (pendingRequests.remove(requestId) != null && throwable instanceof TimeoutException) {
+                        plugin.getLogger().warning("AcctAPI request '" + subChannel + "' (ID: " + requestId + ") timed out after 5 seconds.");
+                    }
+                });
     }
-    
+
     private CompletableFuture<Void> createAndSendFireAndForgetRequest(String subChannel, String... args) {
         CompletableFuture<Void> future = new CompletableFuture<>();
-        
+
         Player sender = Iterables.getFirst(Bukkit.getOnlinePlayers(), null);
         if (sender == null) {
             future.completeExceptionally(new IllegalStateException("Cannot send plugin message: No players online."));
@@ -112,7 +110,7 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
         for (String arg : args) {
             out.writeUTF(arg);
         }
-        
+
         sender.sendPluginMessage(plugin, CHANNEL, out.toByteArray());
         future.complete(null);
         return future;
@@ -200,7 +198,7 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
             future.complete(Optional.empty());
         }
     }
-    
+
     @Override
     public void shutdown() {
         plugin.getServer().getMessenger().unregisterOutgoingPluginChannel(plugin, CHANNEL);

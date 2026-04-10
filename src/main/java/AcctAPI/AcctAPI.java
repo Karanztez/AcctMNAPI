@@ -54,7 +54,7 @@ public final class AcctAPI {
     public static CompletableFuture<Boolean> isRegistered(String playerName) {
         return getHandler().isRegistered(playerName);
     }
-    
+
     public static CompletableFuture<Boolean> isAuthenticated(UUID uuid) {
         return getHandler().isAuthenticated(uuid);
     }
@@ -70,7 +70,7 @@ public final class AcctAPI {
     public static CompletableFuture<Optional<String>> getDiscordId(UUID playerUUID) {
         return getHandler().getDiscordId(playerUUID);
     }
-    
+
     public static CompletableFuture<Void> forceChangePassword(String playerName, String newPassword) {
         return getHandler().forceChangePassword(playerName, newPassword);
     }
