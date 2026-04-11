@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'acct'
-version = '1.0.7.2'
+version = '1.0.8'
 
 repositories {
     mavenCentral()
