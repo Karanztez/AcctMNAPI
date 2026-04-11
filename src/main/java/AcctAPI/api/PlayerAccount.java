@@ -6,6 +6,7 @@ import java.util.UUID;
  * คลาสสำหรับเก็บข้อมูลสรุปเกี่ยวกับบัญชีของผู้เล่น เพื่อใช้ใน API
  * (ใช้ Record เพื่อความกระชับของโค้ด)
  */
+@SuppressWarnings("unused")
 public record PlayerAccount(
         UUID uuid,
         String username,

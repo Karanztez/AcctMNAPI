@@ -33,11 +33,11 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
         plugin.getServer().getMessenger().registerIncomingPluginChannel(plugin, CHANNEL, this);
     }
 
-    @SuppressWarnings("unchecked")
+    // 🌟 อัปเกรด: เพิ่ม NullableProblems และเอา @NotNull หน้า byte[] message ออกเพื่อแก้บั๊ก IDE ขี้บ่น
+    @SuppressWarnings({"unchecked", "NullableProblems"})
     @Override
-    // 🌟 แก้บั๊ก @NotNull ตรงพารามิเตอร์ byte[] message
-    public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, @NotNull byte[] message) {
-        if (!channel.equals(CHANNEL)) return;
+    public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte[] message) {
+        if (message == null || !channel.equals(CHANNEL)) return;
 
         ByteArrayDataInput in = ByteStreams.newDataInput(message);
         String subChannel = in.readUTF();
@@ -50,7 +50,6 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
             case "isRegistered":
             case "isRegisteredUUID":
             case "isAuthenticated":
-                // 🌟 แก้บั๊ก capture<?> โดยการ Cast ไทป์ให้ชัดเจน
                 ((CompletableFuture<Boolean>) future).complete(in.readBoolean());
                 break;
             case "getPlayerAccount":

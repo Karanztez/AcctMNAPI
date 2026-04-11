@@ -15,6 +15,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 
+@SuppressWarnings("unused") // 🌟 ปิดแจ้งเตือน Class/Constructor never used
 public class ReflectionApiHandler implements ApiHandler {
 
     private final JavaPlugin plugin;
@@ -260,7 +261,8 @@ public class ReflectionApiHandler implements ApiHandler {
         });
     }
 
-    private Class<?> getDbManagerInterface(Object dbManager) throws ClassNotFoundException {
+    // 🌟 เอา throws ClassNotFoundException ออก เพราะเราจัดการใน catch block ไปแล้ว
+    private Class<?> getDbManagerInterface(Object dbManager) {
         try {
             return Class.forName("acct.database.DatabaseManager");
         } catch (ClassNotFoundException e) {
