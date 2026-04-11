@@ -6,12 +6,22 @@ import java.util.concurrent.CompletableFuture;
 
 public interface ApiHandler {
     CompletableFuture<Boolean> isRegistered(String playerName);
+    CompletableFuture<Boolean> isRegistered(UUID uuid);
+
     CompletableFuture<Optional<PlayerAccount>> getPlayerAccount(String playerName);
+    CompletableFuture<Optional<PlayerAccount>> getPlayerAccount(UUID uuid);
+
     CompletableFuture<Boolean> isAuthenticated(UUID uuid);
+
     CompletableFuture<Void> forceChangePassword(String playerName, String newPassword);
+    CompletableFuture<Void> forceChangePassword(UUID uuid, String newPassword);
+
     CompletableFuture<Void> forceDeleteAccount(String playerName);
+    CompletableFuture<Void> forceDeleteAccount(UUID uuid);
+
     CompletableFuture<Optional<UUID>> getUuidByDiscordId(String discordId);
     CompletableFuture<Optional<String>> getDiscordId(String playerName);
     CompletableFuture<Optional<String>> getDiscordId(UUID playerUUID);
+
     void shutdown();
 }

@@ -13,10 +13,9 @@ public record PlayerAccount(
         String ipAddress,
         long registrationDate,
         long lastLoginDate,
-        String discordId, // เพิ่มคอลัมน์ discordId
-        String skinName // เพิ่มคอลัมน์ skinName
+        String discordId,
+        String skinName
 ) {
-    // รองรับ Constructor เก่าในกรณีที่บางที่ยังไม่ได้ใส่ discordId
     public PlayerAccount(UUID uuid, String username, String realName, String ipAddress, long registrationDate, long lastLoginDate) {
         this(uuid, username, realName, ipAddress, registrationDate, lastLoginDate, "", "");
     }

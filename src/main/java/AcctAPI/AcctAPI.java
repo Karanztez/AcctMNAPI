@@ -7,22 +7,13 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * A platform-independent API class.
- * This class should NOT extend JavaPlugin or any other platform-specific class.
- */
-@SuppressWarnings("unused") // Suppress "never used" warnings as this is a library
+@SuppressWarnings("unused")
 public final class AcctAPI {
 
     private static ApiHandler handler;
 
-    // Private constructor to prevent instantiation
     private AcctAPI() {}
 
-    /**
-     * This method should be called by the main plugin (AcctVelocity/AcctMN) to set the correct handler.
-     * @param apiHandler The handler implementation.
-     */
     public static void setHandler(ApiHandler apiHandler) {
         if (handler != null && handler != apiHandler) {
             System.out.println("[AcctAPI] Warning: AcctAPI handler is being replaced.");
@@ -30,13 +21,10 @@ public final class AcctAPI {
         handler = apiHandler;
     }
 
-    /**
-     * This method should be called by the main plugin on shutdown.
-     */
     public static void shutdown() {
         if (handler != null) {
             handler.shutdown();
-            handler = null; // Clear the handler
+            handler = null;
         }
     }
 
@@ -47,35 +35,21 @@ public final class AcctAPI {
         return handler;
     }
 
-    public static CompletableFuture<Optional<PlayerAccount>> getPlayerAccount(String playerName) {
-        return getHandler().getPlayerAccount(playerName);
-    }
+    public static CompletableFuture<Optional<PlayerAccount>> getPlayerAccount(String playerName) { return getHandler().getPlayerAccount(playerName); }
+    public static CompletableFuture<Optional<PlayerAccount>> getPlayerAccount(UUID uuid) { return getHandler().getPlayerAccount(uuid); }
 
-    public static CompletableFuture<Boolean> isRegistered(String playerName) {
-        return getHandler().isRegistered(playerName);
-    }
+    public static CompletableFuture<Boolean> isRegistered(String playerName) { return getHandler().isRegistered(playerName); }
+    public static CompletableFuture<Boolean> isRegistered(UUID uuid) { return getHandler().isRegistered(uuid); }
 
-    public static CompletableFuture<Boolean> isAuthenticated(UUID uuid) {
-        return getHandler().isAuthenticated(uuid);
-    }
+    public static CompletableFuture<Boolean> isAuthenticated(UUID uuid) { return getHandler().isAuthenticated(uuid); }
 
-    public static CompletableFuture<Optional<UUID>> getUuidByDiscordId(String discordId) {
-        return getHandler().getUuidByDiscordId(discordId);
-    }
+    public static CompletableFuture<Optional<UUID>> getUuidByDiscordId(String discordId) { return getHandler().getUuidByDiscordId(discordId); }
+    public static CompletableFuture<Optional<String>> getDiscordId(String playerName) { return getHandler().getDiscordId(playerName); }
+    public static CompletableFuture<Optional<String>> getDiscordId(UUID playerUUID) { return getHandler().getDiscordId(playerUUID); }
 
-    public static CompletableFuture<Optional<String>> getDiscordId(String playerName) {
-        return getHandler().getDiscordId(playerName);
-    }
+    public static CompletableFuture<Void> forceChangePassword(String playerName, String newPassword) { return getHandler().forceChangePassword(playerName, newPassword); }
+    public static CompletableFuture<Void> forceChangePassword(UUID uuid, String newPassword) { return getHandler().forceChangePassword(uuid, newPassword); }
 
-    public static CompletableFuture<Optional<String>> getDiscordId(UUID playerUUID) {
-        return getHandler().getDiscordId(playerUUID);
-    }
-
-    public static CompletableFuture<Void> forceChangePassword(String playerName, String newPassword) {
-        return getHandler().forceChangePassword(playerName, newPassword);
-    }
-
-    public static CompletableFuture<Void> forceDeleteAccount(String playerName) {
-        return getHandler().forceDeleteAccount(playerName);
-    }
+    public static CompletableFuture<Void> forceDeleteAccount(String playerName) { return getHandler().forceDeleteAccount(playerName); }
+    public static CompletableFuture<Void> forceDeleteAccount(UUID uuid) { return getHandler().forceDeleteAccount(uuid); }
 }
