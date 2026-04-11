@@ -33,6 +33,7 @@ public final class AcctAPI {
     public static void setHandler(ApiHandler apiHandler) {
         if (handler != null && handler != apiHandler) {
             System.out.println("[AcctAPI] Warning: AcctAPI handler is being replaced.");
+            handler.shutdown();
         }
         handler = apiHandler;
     }
@@ -77,8 +78,27 @@ public final class AcctAPI {
 
     // --- Methods อื่นๆ คงเดิม ---
 
-    public static CompletableFuture<Optional<PlayerAccount>> getPlayerAccount(String playerName) { return getHandler().getPlayerAccount(playerName); }
-    public static CompletableFuture<Optional<PlayerAccount>> getPlayerAccount(UUID uuid) { return getHandler().getPlayerAccount(uuid); }
+    public static CompletableFuture<Optional<PlayerAccount>> getPlayerAccount(String playerName) {
+        return getHandler().getPlayerAccount(playerName).thenApply(opt -> {
+            opt.ifPresent(acc -> {
+                if (acc.xuid() != null && !acc.xuid().isEmpty()) {
+                    setCacheXuid(acc.uuid(), acc.xuid());
+                }
+            });
+            return opt;
+        });
+    }
+
+    public static CompletableFuture<Optional<PlayerAccount>> getPlayerAccount(UUID uuid) {
+        return getHandler().getPlayerAccount(uuid).thenApply(opt -> {
+            opt.ifPresent(acc -> {
+                if (acc.xuid() != null && !acc.xuid().isEmpty()) {
+                    setCacheXuid(acc.uuid(), acc.xuid());
+                }
+            });
+            return opt;
+        });
+    }
 
     public static CompletableFuture<Boolean> isRegistered(String playerName) { return getHandler().isRegistered(playerName); }
     public static CompletableFuture<Boolean> isRegistered(UUID uuid) { return getHandler().isRegistered(uuid); }
