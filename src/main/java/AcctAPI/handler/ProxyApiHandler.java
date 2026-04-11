@@ -33,7 +33,6 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
         plugin.getServer().getMessenger().registerIncomingPluginChannel(plugin, CHANNEL, this);
     }
 
-    // 🌟 อัปเกรด: เพิ่ม NullableProblems และเอา @NotNull หน้า byte[] message ออกเพื่อแก้บั๊ก IDE ขี้บ่น
     @SuppressWarnings({"unchecked", "NullableProblems"})
     @Override
     public void onPluginMessageReceived(@NotNull String channel, @NotNull Player player, byte[] message) {
@@ -57,20 +56,22 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
                 handleGetPlayerAccount(in, (CompletableFuture<Optional<PlayerAccount>>) future);
                 break;
             case "getUuidByDiscordId":
-                boolean presentUuid = in.readBoolean();
-                ((CompletableFuture<Optional<UUID>>) future).complete(presentUuid ? Optional.of(UUID.fromString(in.readUTF())) : Optional.empty());
+                boolean hasUuid = in.readBoolean();
+                ((CompletableFuture<Optional<UUID>>) future).complete(hasUuid ? Optional.of(UUID.fromString(in.readUTF())) : Optional.empty());
                 break;
             case "getDiscordId":
             case "getDiscordIdByUUID":
-                boolean presentString = in.readBoolean();
-                ((CompletableFuture<Optional<String>>) future).complete(presentString ? Optional.of(in.readUTF()) : Optional.empty());
+            case "getXuid":
+            case "getXuidByUUID":
+                boolean hasStr = in.readBoolean();
+                ((CompletableFuture<Optional<String>>) future).complete(hasStr ? Optional.of(in.readUTF()) : Optional.empty());
                 break;
         }
     }
 
     private <T> CompletableFuture<T> createAndSendRequest(String subChannel, String... args) {
         Player sender = Iterables.getFirst(Bukkit.getOnlinePlayers(), null);
-        if (sender == null) return CompletableFuture.failedFuture(new IllegalStateException("Cannot send plugin message: No players online."));
+        if (sender == null) return CompletableFuture.failedFuture(new IllegalStateException("No players online."));
 
         final CompletableFuture<T> future = new CompletableFuture<>();
         final String requestId = UUID.randomUUID().toString();
@@ -83,65 +84,68 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
         pendingRequests.put(requestId, future);
         sender.sendPluginMessage(plugin, CHANNEL, out.toByteArray());
 
-        return future.orTimeout(5, TimeUnit.SECONDS).whenComplete((result, throwable) -> {
-            if (pendingRequests.remove(requestId) != null && throwable instanceof TimeoutException) {
-                plugin.getLogger().warning("AcctAPI request '" + subChannel + "' timed out.");
+        return future.orTimeout(5, TimeUnit.SECONDS).whenComplete((res, ex) -> {
+            pendingRequests.remove(requestId);
+            if (ex instanceof TimeoutException) {
+                plugin.getLogger().warning("AcctAPI: Request " + subChannel + " timed out.");
             }
         });
     }
 
-    private CompletableFuture<Void> createAndSendFireAndForgetRequest(String subChannel, String... args) {
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        Player sender = Iterables.getFirst(Bukkit.getOnlinePlayers(), null);
-        if (sender == null) {
-            future.completeExceptionally(new IllegalStateException("Cannot send plugin message: No players online."));
-            return future;
+    @Override
+    public CompletableFuture<Boolean> isRegistered(String n) { return createAndSendRequest("isRegistered", n); }
+    @Override
+    public CompletableFuture<Boolean> isRegistered(UUID u) { return createAndSendRequest("isRegisteredUUID", u.toString()); }
+    @Override
+    public CompletableFuture<Optional<PlayerAccount>> getPlayerAccount(String n) { return createAndSendRequest("getPlayerAccount", n); }
+    @Override
+    public CompletableFuture<Optional<PlayerAccount>> getPlayerAccount(UUID u) { return createAndSendRequest("getPlayerAccountUUID", u.toString()); }
+    @Override
+    public CompletableFuture<Boolean> isAuthenticated(UUID u) { return createAndSendRequest("isAuthenticated", u.toString()); }
+
+    @Override
+    public CompletableFuture<Void> forceChangePassword(String n, String p) { return sendFireForget("forceChangePassword", n, p); }
+    @Override
+    public CompletableFuture<Void> forceChangePassword(UUID u, String p) { return sendFireForget("forceChangePasswordUUID", u.toString(), p); }
+    @Override
+    public CompletableFuture<Void> forceDeleteAccount(String n) { return sendFireForget("forceDeleteAccount", n); }
+    @Override
+    public CompletableFuture<Void> forceDeleteAccount(UUID u) { return sendFireForget("forceDeleteAccountUUID", u.toString()); }
+
+    private CompletableFuture<Void> sendFireForget(String sub, String... args) {
+        Player p = Iterables.getFirst(Bukkit.getOnlinePlayers(), null);
+        if (p != null) {
+            ByteArrayDataOutput out = ByteStreams.newDataOutput();
+            out.writeUTF(sub);
+            for (String a : args) out.writeUTF(a);
+            p.sendPluginMessage(plugin, CHANNEL, out.toByteArray());
         }
-
-        ByteArrayDataOutput out = ByteStreams.newDataOutput();
-        out.writeUTF(subChannel);
-        for (String arg : args) out.writeUTF(arg);
-
-        sender.sendPluginMessage(plugin, CHANNEL, out.toByteArray());
-        future.complete(null);
-        return future;
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override
-    public CompletableFuture<Boolean> isRegistered(String playerName) { return createAndSendRequest("isRegistered", playerName); }
+    public CompletableFuture<Optional<UUID>> getUuidByDiscordId(String id) { return createAndSendRequest("getUuidByDiscordId", id); }
     @Override
-    public CompletableFuture<Boolean> isRegistered(UUID uuid) { return createAndSendRequest("isRegisteredUUID", uuid.toString()); }
-
+    public CompletableFuture<Optional<String>> getDiscordId(String n) { return createAndSendRequest("getDiscordId", n); }
     @Override
-    public CompletableFuture<Optional<PlayerAccount>> getPlayerAccount(String playerName) { return createAndSendRequest("getPlayerAccount", playerName); }
+    public CompletableFuture<Optional<String>> getDiscordId(UUID u) { return createAndSendRequest("getDiscordIdByUUID", u.toString()); }
     @Override
-    public CompletableFuture<Optional<PlayerAccount>> getPlayerAccount(UUID uuid) { return createAndSendRequest("getPlayerAccountUUID", uuid.toString()); }
-
+    public CompletableFuture<Optional<String>> getXuid(String n) { return createAndSendRequest("getXuid", n); }
     @Override
-    public CompletableFuture<Boolean> isAuthenticated(UUID uuid) { return createAndSendRequest("isAuthenticated", uuid.toString()); }
-
-    @Override
-    public CompletableFuture<Void> forceChangePassword(String playerName, String newPassword) { return createAndSendFireAndForgetRequest("forceChangePassword", playerName, newPassword); }
-    @Override
-    public CompletableFuture<Void> forceChangePassword(UUID uuid, String newPassword) { return createAndSendFireAndForgetRequest("forceChangePasswordUUID", uuid.toString(), newPassword); }
-
-    @Override
-    public CompletableFuture<Void> forceDeleteAccount(String playerName) { return createAndSendFireAndForgetRequest("forceDeleteAccount", playerName); }
-    @Override
-    public CompletableFuture<Void> forceDeleteAccount(UUID uuid) { return createAndSendFireAndForgetRequest("forceDeleteAccountUUID", uuid.toString()); }
-
-    @Override
-    public CompletableFuture<Optional<UUID>> getUuidByDiscordId(String discordId) { return createAndSendRequest("getUuidByDiscordId", discordId); }
-    @Override
-    public CompletableFuture<Optional<String>> getDiscordId(String playerName) { return createAndSendRequest("getDiscordId", playerName); }
-    @Override
-    public CompletableFuture<Optional<String>> getDiscordId(UUID playerUUID) { return createAndSendRequest("getDiscordIdByUUID", playerUUID.toString()); }
+    public CompletableFuture<Optional<String>> getXuid(UUID u) { return createAndSendRequest("getXuidByUUID", u.toString()); }
 
     private void handleGetPlayerAccount(ByteArrayDataInput in, CompletableFuture<Optional<PlayerAccount>> future) {
         if (in.readBoolean()) {
             future.complete(Optional.of(new PlayerAccount(
-                    UUID.fromString(in.readUTF()), in.readUTF(), in.readUTF(), in.readUTF(),
-                    in.readLong(), in.readLong(), in.readUTF(), in.readUTF()
+                    UUID.fromString(in.readUTF()), // 1. uuid
+                    in.readUTF(),                   // 2. name
+                    in.readUTF(),                   // 3. realName
+                    in.readUTF(),                   // 4. ip
+                    in.readLong(),                  // 5. regDate
+                    in.readLong(),                  // 6. lastLogin
+                    in.readUTF(),                   // 7. discordId
+                    in.readUTF(),                   // 8. skinName
+                    in.readUTF()                    // 9. xuid 🌟 (เพิ่มตัวนี้)
             )));
         } else {
             future.complete(Optional.empty());
@@ -152,7 +156,6 @@ public class ProxyApiHandler implements ApiHandler, PluginMessageListener {
     public void shutdown() {
         plugin.getServer().getMessenger().unregisterOutgoingPluginChannel(plugin, CHANNEL);
         plugin.getServer().getMessenger().unregisterIncomingPluginChannel(plugin, CHANNEL, this);
-        pendingRequests.forEach((id, future) -> future.completeExceptionally(new IllegalStateException("AcctAPI shutting down.")));
         pendingRequests.clear();
     }
 }

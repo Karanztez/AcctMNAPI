@@ -15,7 +15,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 
-@SuppressWarnings("unused") // 🌟 ปิดแจ้งเตือน Class/Constructor never used
+@SuppressWarnings("unused")
 public class ReflectionApiHandler implements ApiHandler {
 
     private final JavaPlugin plugin;
@@ -25,7 +25,7 @@ public class ReflectionApiHandler implements ApiHandler {
         this.plugin = plugin;
         this.acctMNPlugin = Bukkit.getPluginManager().getPlugin("AcctMN");
         if (this.acctMNPlugin == null) {
-            plugin.getLogger().severe("AcctMN plugin not found! The AcctAPI will not function in Reflection mode.");
+            plugin.getLogger().severe("AcctMN plugin not found! Reflection mode disabled.");
         }
     }
 
@@ -51,30 +51,24 @@ public class ReflectionApiHandler implements ApiHandler {
     @Override
     public CompletableFuture<Boolean> isRegistered(String playerName) {
         return CompletableFuture.supplyAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) return false;
+            Object db = getDatabaseManager();
+            if (db == null) return false;
             try {
-                Method isRegisteredMethod = dbManager.getClass().getMethod("isRegistered", String.class);
-                return (boolean) isRegisteredMethod.invoke(dbManager, playerName);
-            } catch (Exception e) {
-                logReflectionError(e);
-                return false;
-            }
+                Method m = db.getClass().getMethod("isRegistered", String.class);
+                return (boolean) m.invoke(db, playerName);
+            } catch (Exception e) { return false; }
         });
     }
 
     @Override
     public CompletableFuture<Boolean> isRegistered(UUID uuid) {
         return CompletableFuture.supplyAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) return false;
+            Object db = getDatabaseManager();
+            if (db == null) return false;
             try {
-                Method isRegisteredMethod = dbManager.getClass().getMethod("isRegistered", UUID.class);
-                return (boolean) isRegisteredMethod.invoke(dbManager, uuid);
-            } catch (Exception e) {
-                logReflectionError(e);
-                return false;
-            }
+                Method m = db.getClass().getMethod("isRegistered", UUID.class);
+                return (boolean) m.invoke(db, uuid);
+            } catch (Exception e) { return false; }
         });
     }
 
@@ -82,15 +76,12 @@ public class ReflectionApiHandler implements ApiHandler {
     @Override
     public CompletableFuture<Optional<PlayerAccount>> getPlayerAccount(String playerName) {
         return CompletableFuture.supplyAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) return Optional.empty();
+            Object db = getDatabaseManager();
+            if (db == null) return Optional.empty();
             try {
-                Method getAccountMethod = dbManager.getClass().getMethod("getPlayerAccount", String.class);
-                return (Optional<PlayerAccount>) getAccountMethod.invoke(dbManager, playerName);
-            } catch (Exception e) {
-                logReflectionError(e);
-                return Optional.empty();
-            }
+                Method m = db.getClass().getMethod("getPlayerAccount", String.class);
+                return (Optional<PlayerAccount>) m.invoke(db, playerName);
+            } catch (Exception e) { return Optional.empty(); }
         });
     }
 
@@ -98,15 +89,12 @@ public class ReflectionApiHandler implements ApiHandler {
     @Override
     public CompletableFuture<Optional<PlayerAccount>> getPlayerAccount(UUID uuid) {
         return CompletableFuture.supplyAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) return Optional.empty();
+            Object db = getDatabaseManager();
+            if (db == null) return Optional.empty();
             try {
-                Method getAccountMethod = dbManager.getClass().getMethod("getPlayerAccount", UUID.class);
-                return (Optional<PlayerAccount>) getAccountMethod.invoke(dbManager, uuid);
-            } catch (Exception e) {
-                logReflectionError(e);
-                return Optional.empty();
-            }
+                Method m = db.getClass().getMethod("getPlayerAccount", UUID.class);
+                return (Optional<PlayerAccount>) m.invoke(db, uuid);
+            } catch (Exception e) { return Optional.empty(); }
         });
     }
 
@@ -115,80 +103,69 @@ public class ReflectionApiHandler implements ApiHandler {
         return CompletableFuture.supplyAsync(() -> {
             Player player = Bukkit.getPlayer(uuid);
             if (player == null || !player.isOnline()) return false;
-            Object sessionManager = getSessionManager();
-            if (sessionManager == null) return false;
+            Object sm = getSessionManager();
+            if (sm == null) return false;
             try {
-                Method isPendingMethod = sessionManager.getClass().getMethod("isPending", Player.class);
-                return !(boolean) isPendingMethod.invoke(sessionManager, player);
-            } catch (Exception e) {
-                logReflectionError(e);
-                return false;
-            }
+                Method m = sm.getClass().getMethod("isPending", Player.class);
+                return !(boolean) m.invoke(sm, player);
+            } catch (Exception e) { return false; }
         });
     }
 
     @Override
     public CompletableFuture<Void> forceChangePassword(String playerName, String newPassword) {
         return CompletableFuture.runAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) return;
+            Object db = getDatabaseManager();
+            if (db == null) return;
             try {
-                Method updatePasswordMethod = dbManager.getClass().getMethod("updatePassword", String.class, String.class);
-                updatePasswordMethod.invoke(dbManager, playerName, newPassword);
-            } catch (Exception e) {
-                logReflectionError(e);
-            }
+                Method m = db.getClass().getMethod("updatePassword", String.class, String.class);
+                m.invoke(db, playerName, newPassword);
+            } catch (Exception e) { logReflectionError(e); }
         });
     }
 
     @Override
     public CompletableFuture<Void> forceChangePassword(UUID uuid, String newPassword) {
         return CompletableFuture.runAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) return;
+            Object db = getDatabaseManager();
+            if (db == null) return;
             try {
-                Method updatePasswordMethod = dbManager.getClass().getMethod("updatePassword", UUID.class, String.class);
-                updatePasswordMethod.invoke(dbManager, uuid, newPassword);
-            } catch (Exception e) {
-                logReflectionError(e);
-            }
+                Method m = db.getClass().getMethod("updatePassword", UUID.class, String.class);
+                m.invoke(db, uuid, newPassword);
+            } catch (Exception e) { logReflectionError(e); }
         });
     }
 
     @Override
     public CompletableFuture<Void> forceDeleteAccount(String playerName) {
         return CompletableFuture.runAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) return;
+            Object db = getDatabaseManager();
+            if (db == null) return;
             try {
-                Method isRegisteredMethod = dbManager.getClass().getMethod("isRegistered", String.class);
-                if ((boolean) isRegisteredMethod.invoke(dbManager, playerName)) {
+                Method isReg = db.getClass().getMethod("isRegistered", String.class);
+                if ((boolean) isReg.invoke(db, playerName)) {
                     kickPlayerIfOnline(playerName);
-                    Method deleteAccountMethod = dbManager.getClass().getMethod("deleteAccount", String.class);
-                    deleteAccountMethod.invoke(dbManager, playerName);
+                    Method del = db.getClass().getMethod("deleteAccount", String.class);
+                    del.invoke(db, playerName);
                 }
-            } catch (Exception e) {
-                logReflectionError(e);
-            }
+            } catch (Exception e) { logReflectionError(e); }
         });
     }
 
     @Override
     public CompletableFuture<Void> forceDeleteAccount(UUID uuid) {
         return CompletableFuture.runAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) return;
+            Object db = getDatabaseManager();
+            if (db == null) return;
             try {
-                Method isRegisteredMethod = dbManager.getClass().getMethod("isRegistered", UUID.class);
-                if ((boolean) isRegisteredMethod.invoke(dbManager, uuid)) {
-                    Player player = Bukkit.getPlayer(uuid);
-                    if (player != null) kickPlayerIfOnline(player.getName());
-                    Method deleteAccountMethod = dbManager.getClass().getMethod("deleteAccount", UUID.class);
-                    deleteAccountMethod.invoke(dbManager, uuid);
+                Method isReg = db.getClass().getMethod("isRegistered", UUID.class);
+                if ((boolean) isReg.invoke(db, uuid)) {
+                    Player p = Bukkit.getPlayer(uuid);
+                    if (p != null) kickPlayerIfOnline(p.getName());
+                    Method del = db.getClass().getMethod("deleteAccount", UUID.class);
+                    del.invoke(db, uuid);
                 }
-            } catch (Exception e) {
-                logReflectionError(e);
-            }
+            } catch (Exception e) { logReflectionError(e); }
         });
     }
 
@@ -196,78 +173,77 @@ public class ReflectionApiHandler implements ApiHandler {
         getPlayerAccount(playerName).thenAccept(opt -> opt.ifPresent(acc -> {
             Player player = Bukkit.getPlayer(acc.uuid());
             if (player != null) {
-                Object langManager = getLangManager();
-                if (langManager == null) return;
+                Object lang = getLangManager();
+                if (lang == null) return;
                 try {
-                    Method getLangMethod = langManager.getClass().getMethod("get", String.class);
-                    String kickMessage = (String) getLangMethod.invoke(langManager, "unregister.kick_message");
-                    final Component kickComponent = LegacyComponentSerializer.legacyAmpersand().deserialize(kickMessage);
-                    Bukkit.getScheduler().runTask(acctMNPlugin, () -> player.kick(kickComponent));
-                } catch (Exception e) {
-                    logReflectionError(e);
-                }
+                    Method getMsg = lang.getClass().getMethod("get", String.class);
+                    String msg = (String) getMsg.invoke(lang, "unregister.kick_message");
+                    final Component component = LegacyComponentSerializer.legacyAmpersand().deserialize(msg);
+                    Bukkit.getScheduler().runTask(acctMNPlugin, () -> player.kick(component));
+                } catch (Exception e) { logReflectionError(e); }
             }
         }));
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public CompletableFuture<Optional<UUID>> getUuidByDiscordId(String discordId) {
         return CompletableFuture.supplyAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) return Optional.empty();
+            Object db = getDatabaseManager();
+            if (db == null) return Optional.empty();
             try {
-                Method getPlayerUuidMethod = getDbManagerInterface(dbManager).getMethod("getPlayerUUID", String.class);
-                Object result = getPlayerUuidMethod.invoke(dbManager, discordId);
-                if (result instanceof UUID) return Optional.of((UUID) result);
-                else if (result instanceof Optional) return (Optional<UUID>) result;
-                return Optional.empty();
-            } catch (Exception e) {
-                logReflectionError(e);
-                return Optional.empty();
-            }
+                Method m = db.getClass().getMethod("getPlayerUUID", String.class);
+                Object res = m.invoke(db, discordId);
+                return res instanceof UUID ? Optional.of((UUID) res) : Optional.empty();
+            } catch (Exception e) { return Optional.empty(); }
         });
     }
 
     @Override
     public CompletableFuture<Optional<String>> getDiscordId(String playerName) {
         return CompletableFuture.supplyAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) return Optional.empty();
+            Object db = getDatabaseManager();
+            if (db == null) return Optional.empty();
             try {
-                Method getDiscordIdMethod = getDbManagerInterface(dbManager).getMethod("getDiscordId", String.class);
-                Object result = getDiscordIdMethod.invoke(dbManager, playerName);
-                return result instanceof String ? Optional.of((String) result) : Optional.empty();
-            } catch (Exception e) {
-                logReflectionError(e);
-                return Optional.empty();
-            }
+                Method m = db.getClass().getMethod("getDiscordId", String.class);
+                return Optional.ofNullable((String) m.invoke(db, playerName));
+            } catch (Exception e) { return Optional.empty(); }
         });
     }
 
     @Override
     public CompletableFuture<Optional<String>> getDiscordId(UUID playerUUID) {
         return CompletableFuture.supplyAsync(() -> {
-            Object dbManager = getDatabaseManager();
-            if (dbManager == null) return Optional.empty();
+            Object db = getDatabaseManager();
+            if (db == null) return Optional.empty();
             try {
-                Method getDiscordIdMethod = getDbManagerInterface(dbManager).getMethod("getDiscordId", UUID.class);
-                Object result = getDiscordIdMethod.invoke(dbManager, playerUUID);
-                return result instanceof String ? Optional.of((String) result) : Optional.empty();
-            } catch (Exception e) {
-                logReflectionError(e);
-                return Optional.empty();
-            }
+                Method m = db.getClass().getMethod("getDiscordId", UUID.class);
+                return Optional.ofNullable((String) m.invoke(db, playerUUID));
+            } catch (Exception e) { return Optional.empty(); }
         });
     }
 
-    // 🌟 เอา throws ClassNotFoundException ออก เพราะเราจัดการใน catch block ไปแล้ว
-    private Class<?> getDbManagerInterface(Object dbManager) {
-        try {
-            return Class.forName("acct.database.DatabaseManager");
-        } catch (ClassNotFoundException e) {
-            return dbManager.getClass();
-        }
+    @Override
+    public CompletableFuture<Optional<String>> getXuid(String playerName) {
+        return CompletableFuture.supplyAsync(() -> {
+            Object db = getDatabaseManager();
+            if (db == null) return Optional.empty();
+            try {
+                Method m = db.getClass().getMethod("getXuid", String.class);
+                return Optional.ofNullable((String) m.invoke(db, playerName));
+            } catch (Exception e) { return Optional.empty(); }
+        });
+    }
+
+    @Override
+    public CompletableFuture<Optional<String>> getXuid(UUID playerUUID) {
+        return CompletableFuture.supplyAsync(() -> {
+            Object db = getDatabaseManager();
+            if (db == null) return Optional.empty();
+            try {
+                Method m = db.getClass().getMethod("getXuid", UUID.class);
+                return Optional.ofNullable((String) m.invoke(db, playerUUID));
+            } catch (Exception e) { return Optional.empty(); }
+        });
     }
 
     @Override

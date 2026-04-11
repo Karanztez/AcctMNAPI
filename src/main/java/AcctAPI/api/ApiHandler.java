@@ -23,5 +23,8 @@ public interface ApiHandler {
     CompletableFuture<Optional<String>> getDiscordId(String playerName);
     CompletableFuture<Optional<String>> getDiscordId(UUID playerUUID);
 
+    CompletableFuture<Optional<String>> getXuid(String playerName);
+    CompletableFuture<Optional<String>> getXuid(UUID playerUUID);
+
     void shutdown();
 }
