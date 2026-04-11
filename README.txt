@@ -1,81 +1,103 @@
 ================================================================
-คู่มือสำหรับผู้พัฒนา: การอัปเดตปลั๊กอินเพื่อรองรับ AcctAPI v2+
+AcctAPI v1.0.8 - คู่มือสำหรับผู้พัฒนา (Developer Guide)
 ================================================================
 
-สวัสดีครับผู้พัฒนา,
+ยินดีต้อนรับสู่ AcctAPI v1.0.8!
 
-`AcctAPI` ได้รับการอัปเกรดครั้งใหญ่เพื่อรองรับการทำงานบนเครือข่าย Proxy (เช่น BungeeCord/Velocity) การเปลี่ยนแปลงนี้ส่งผลให้ **ทุกเมธอดใน API ถูกปรับเป็นแบบ Asynchronous ทั้งหมด** เพื่อป้องกันไม่ให้เซิร์ฟเวอร์ค้างขณะรอข้อมูลจากเครือข่ายหรือฐานข้อมูล
+ไลบรารีนี้ได้รับการออกแบบใหม่ทั้งหมดเพื่อให้ใช้งานง่าย, มีประสิทธิภาพ, และรองรับการทำงานบนเครือข่าย Proxy (BungeeCord/Velocity) ได้อย่างสมบูรณ์
 
-หากปลั๊กอินของคุณเรียกใช้ `AcctAPI` คุณจำเป็นต้องปรับปรุงโค้ดเล็กน้อยเพื่อให้ทำงานร่วมกับเวอร์ชันใหม่ได้อย่างถูกต้อง
+### **ปรัชญาการออกแบบใหม่**
 
----
-### **การเปลี่ยนแปลงที่สำคัญที่สุด: ทุกอย่างคือ `CompletableFuture`**
+AcctAPI ไม่ได้เป็นปลั๊กอินที่ต้องตั้งค่าเองอีกต่อไป แต่เป็นไลบรารีแบบ Static ที่พร้อมใช้งานทันที โดยอาศัยปลั๊กอินหลัก (เช่น `AcctMN` หรือ `AcctVelocity`) ในการจัดการการเชื่อมต่อทั้งหมดให้โดยอัตโนมัติ
 
-จากเดิมที่เมธอดส่วนใหญ่คืนค่าโดยตรง (เช่น `boolean` หรือ `Optional<PlayerAccount>`) ตอนนี้ทุกเมธอดจะคืนค่าเป็น `CompletableFuture<T>` แทน ซึ่งเป็นออบเจ็กต์ที่สัญญาว่าจะให้ผลลัพธ์ในอนาคต
-
-**ตัวอย่างโค้ดเก่า (ไม่สามารถใช้งานได้แล้ว):**
-```java
-// โค้ดนี้จะทำให้เกิด Error เพราะ isRegistered ไม่ได้คืนค่า boolean โดยตรงอีกต่อไป
-boolean isRegistered = AcctAPI.isRegistered("SomePlayer");
-if (isRegistered) {
-    // ทำอะไรบางอย่าง...
-}
-```
-
-**ตัวอย่างโค้ดใหม่ (ที่ถูกต้อง):**
-
-คุณจะต้องจัดการกับผลลัพธ์ที่ได้ในอนาคตโดยใช้ `.thenAccept()` (เมื่อไม่ต้องการคืนค่า) หรือ `.thenApply()` (เมื่อต้องการแปลงผลลัพธ์)
-
-```java
-// การเรียกใช้ AcctAPI.isRegistered จะคืนค่า CompletableFuture<Boolean> ทันที
-CompletableFuture<Boolean> future = AcctAPI.isRegistered("SomePlayer");
-
-// สั่งให้โค้ดที่จะทำงานกับผลลัพธ์ (isRegistered) ไปรันในภายหลังเมื่อได้รับคำตอบ
-future.thenAccept(isRegistered -> {
-    // โค้ดส่วนนี้จะถูกเรียกเมื่อ AcctAPI ได้รับคำตอบกลับมาแล้ว
-    // (อาจจะทำงานบน Thread อื่นที่ไม่ใช่ Thread หลักของเซิร์ฟเวอร์)
-
-    if (isRegistered) {
-        System.out.println("ผู้เล่นคนนี้ลงทะเบียนแล้ว!");
-
-        // หากต้องการรันโค้ดที่เกี่ยวกับ Bukkit API (เช่น ส่งข้อความหาผู้เล่น)
-        // **ต้อง** กลับมาทำงานบน Thread หลักของเซิร์ฟเวอร์เสมอ
-        Bukkit.getScheduler().runTask(yourPluginInstance, () -> {
-            Player player = Bukkit.getPlayer("SomePlayer");
-            if (player != null) {
-                player.sendMessage("คุณได้ลงทะเบียนเรียบร้อยแล้ว");
-            }
-        });
-    } else {
-        System.out.println("ผู้เล่นคนนี้ยังไม่ได้ลงทะเบียน");
-    }
-});
-```
+**สิ่งที่คุณต้องทำมีเพียงอย่างเดียว: เพิ่ม `AcctAPI` เป็น dependency ในโปรเจกต์ของคุณ**
 
 ---
-### **การตั้งค่าใน `plugin.yml`**
+### **1. การตั้งค่าโปรเจกต์**
 
-**ไม่ต้องเปลี่ยนแปลงอะไร!**
+เพิ่ม `AcctAPI` เป็น dependency ใน `plugin.yml` ของคุณเพื่อให้แน่ใจว่า API จะพร้อมใช้งานก่อนที่ปลั๊กอินของคุณจะถูกโหลด
 
-คุณยังคงใช้ `depend: [AcctAPI]` ในไฟล์ `plugin.yml` ของคุณเหมือนเดิมทุกประการ การตั้งค่านี้จะรับประกันว่า `AcctAPI` ถูกโหลดก่อนปลั๊กอินของคุณเสมอ
-
+**plugin.yml:**
 ```yaml
-# plugin.yml ของคุณ
+# ... ข้อมูลปลั๊กอินของคุณ
 name: MyAwesomePlugin
-version: 1.1
+version: 2.0
 main: com.myplugin.Main
 api-version: 1.21
+
+# บรรทัดที่สำคัญที่สุด:
+# บอกให้เซิร์ฟเวอร์โหลด AcctAPI ให้เสร็จก่อนเสมอ
 depend:
   - AcctAPI
 ```
 
 ---
-### **สรุปขั้นตอนการอัปเดต:**
+### **2. การเรียกใช้งาน API**
 
-1.  **ค้นหาทุกจุดในโค้ดของคุณที่เรียกใช้เมธอดของ `AcctAPI`**
-2.  **แก้ไขโค้ดเหล่านั้น** ให้ทำงานกับ `CompletableFuture` โดยใช้ `.thenAccept()`, `.thenApply()`, หรือ `.whenComplete()`
-3.  **จำไว้เสมอว่า** โค้ดที่อยู่ภายใน `.thenAccept()` อาจไม่ได้ทำงานบน Thread หลักของเซิร์ฟเวอร์ หากคุณต้องการเรียกใช้ Bukkit API (เช่น จัดการกับ Player, World, หรือ Block) ให้ใช้ `Bukkit.getScheduler().runTask(plugin, ...)` เพื่อสลับกลับมายัง Thread หลักก่อนเสมอ
+ทุกเมธอดใน `AcctAPI` เป็นแบบ Asynchronous และจะคืนค่าเป็น `CompletableFuture<T>` เสมอ เพื่อป้องกันไม่ให้เซิร์ฟเวอร์ของคุณค้างขณะรอข้อมูล
 
-การเปลี่ยนแปลงนี้จะช่วยให้ปลั๊กอินของคุณและ `AcctAPI` ทำงานได้อย่างราบรื่นและมีประสิทธิภาพสูงสุดบนทุกสภาพแวดล้อมเซิร์ฟเวอร์
+**การเปลี่ยนแปลงที่สำคัญ:**
+*   **เมธอดส่วนใหญ่รองรับทั้ง `String` (ชื่อผู้เล่น) และ `UUID`** เพื่อความสะดวกในการใช้งาน
+*   คุณไม่จำเป็นต้องสนใจว่าเซิร์ฟเวอร์กำลังทำงานในโหมด "เดี่ยว" หรือ "Proxy" เพราะ API จะจัดการให้เอง
 
-ขอบคุณครับ!
+**ตัวอย่าง: ตรวจสอบว่าผู้เล่นลงทะเบียนแล้วหรือไม่**
+
+```java
+import AcctAPI.AcctAPI;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
+
+public class MyPlugin extends JavaPlugin {
+
+    public void checkPlayerRegistration(Player player) {
+
+        // เรียก API ด้วย UUID (แนะนำ) หรือชื่อผู้เล่น
+        // การเรียกนี้จะคืนค่า CompletableFuture<Boolean> ทันทีโดยไม่ทำให้เซิร์ฟเวอร์ค้าง
+        CompletableFuture<Boolean> future = AcctAPI.isRegistered(player.getUniqueId());
+
+        // จัดการกับผลลัพธ์ที่จะได้รับในอนาคต
+        future.thenAccept(isRegistered -> {
+
+            // โค้ดในบล็อกนี้จะทำงานเมื่อได้รับคำตอบจาก AcctAPI แล้ว
+            if (isRegistered) {
+                // สำคัญ: หากต้องการรันโค้ดที่เกี่ยวกับ Bukkit (เช่น ส่งข้อความ, แก้ไข Block)
+                // ต้องสลับกลับมาทำงานบน Thread หลักของเซิร์ฟเวอร์เสมอ!
+                getServer().getScheduler().runTask(this, () -> {
+                    player.sendMessage("คุณได้ลงทะเบียนเรียบร้อยแล้ว!");
+                });
+            } else {
+                getServer().getScheduler().runTask(this, () -> {
+                    player.sendMessage("คุณยังไม่ได้ลงทะเบียน");
+                });
+            }
+
+        }).exceptionally(error -> {
+            // จัดการกับข้อผิดพลาดที่อาจเกิดขึ้น (เช่น API Timeout)
+            getLogger().warning("ไม่สามารถตรวจสอบข้อมูลผู้เล่นได้: " + error.getMessage());
+            return null; // จำเป็นต้องคืนค่า null ใน exceptionally
+        });
+    }
+}
+```
+
+---
+### **3. เมธอดที่มีให้ใช้งาน**
+
+เมธอดทั้งหมดอยู่ในคลาส `AcctAPI` และเป็นแบบ Static
+
+*   `getPlayerAccount(String/UUID)`: ขอข้อมูลบัญชีผู้เล่น
+*   `isRegistered(String/UUID)`: ตรวจสอบว่าผู้เล่นลงทะเบียนแล้วหรือไม่
+*   `isAuthenticated(UUID)`: ตรวจสอบสถานะการล็อกอิน
+*   `getUuidByDiscordId(String)`: ค้นหา UUID จาก Discord ID
+*   `getDiscordId(String/UUID)`: ค้นหา Discord ID จากข้อมูลผู้เล่น
+*   `forceChangePassword(String/UUID, newPassword)`: สั่งเปลี่ยนรหัสผ่าน
+*   `forceDeleteAccount(String/UUID)`: สั่งลบบัญชี
+
+---
+### **สรุปการอัปเดตจากเวอร์ชันเก่า**
+
+*   **ง่ายขึ้น:** ไม่ต้องตั้งค่า `config.yml` ของ `AcctAPI` อีกต่อไป
+*   **สะดวกขึ้น:** เมธอดส่วนใหญ่รองรับทั้ง `UUID` และ `String`
+*   **เสถียรขึ้น:** มีระบบ Timeout ในตัวสำหรับโหมด Proxy
+
+ขอให้สนุกกับการพัฒนาครับ!
