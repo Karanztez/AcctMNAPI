@@ -2,7 +2,7 @@ Here is the professional English version of your **README.md**. It follows the s
 
 ---
 
-# **AcctMNAPI v1.0.8**
+# **AcctMNAPI v1.0.9.2**
 ### *The Lightweight Authentication Bridge for Minecraft Networks*
 
 **AcctMNAPI** is a high-performance, developer-friendly library designed to interface with the **AcctMN** (Spigot/Paper) and **AcctVelocity** ecosystem. It provides a unified API for managing player accounts across standalone servers and complex proxy networks.
