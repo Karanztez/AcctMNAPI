@@ -54,7 +54,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("Karanztez.AcctMNAPI:acctmn-api:1.0.6")
+    compileOnly("com.github.Karanztez:AcctMNAPI:1.0.6")
 }
 ```
 

@@ -4,7 +4,7 @@ plugins {
     `maven-publish`
 }
 
-group = "Karanztez.AcctMNAPI"
+group = "com.github.Karanztez"
 version = "1.0.6"
 description = "Public API for other plugins to integrate with AcctMN"
 
@@ -47,8 +47,8 @@ tasks.jar {
 publishing {
     publications {
         create<MavenPublication>("gpr") {
-            groupId = "Karanztez.AcctMNAPI"
-            artifactId = "acctmn-api"
+            groupId = "com.github.Karanztez"
+            artifactId = "AcctMNAPI"
             version = "1.0.6"
             from(components["java"])
             pom {
