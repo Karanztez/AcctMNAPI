@@ -1,0 +1,82 @@
+name: Build and Publish AcctMN API
+
+on:
+  push:
+    branches: [main, origin]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew build --no-daemon
+
+      - name: Publish to GitHub Packages
+        run: ./gradlew publishGprPublicationToGitHubPackagesRepository --no-daemon
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/origin'
+        with:
+          tag_name: v1.0.6
+          name: AcctMN API 1.0.6
+          files: |
+            build/libs/acctmn-api-1.0.6.jar
+            build/libs/acctmn-api-1.0.6-sources.jar
+          body: |
+            ## AcctMN Public API 1.0.6
+
+            Official Public Developer API for AcctMN.
+
+            ### Gradle (JitPack - Recommended, No Token Needed)
+            ```kotlin
+            repositories {
+                maven("https://jitpack.io")
+            }
+            dependencies {
+                compileOnly("com.github.Karanztez:AcctMNAPI:v1.0.6")
+            }
+            ```
+
+            ### Gradle (GitHub Packages)
+            ```kotlin
+            repositories {
+                maven {
+                    url = uri("https://maven.pkg.github.com/Karanztez/AcctMNAPI")
+                    credentials {
+                        username = project.findProperty("gpr.user") as String? ?: System.getenv("GITHUB_ACTOR")
+                        password = project.findProperty("gpr.key") as String? ?: System.getenv("GITHUB_TOKEN")
+                    }
+                }
+            }
+            dependencies {
+                compileOnly("Karanztez.AcctMNAPI:acctmn-api:1.0.6")
+            }
+            ```
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
